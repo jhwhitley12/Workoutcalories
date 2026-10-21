@@ -46,3 +46,18 @@ Workout Calories and make sure all three permissions are on.
 | `CalorieTracker/ContentView.swift` | Date range UI, presets, summary, chart, breakdown and list |
 | `CalorieTracker/WorkoutActivityType+Display.swift` | Names and SF Symbols for workout types |
 | `CalorieTracker.entitlements` | HealthKit entitlement |
+
+---
+
+# Stock Apps (Mac)
+
+This repository also contains two native Mac apps in
+[`StockApps/`](StockApps/README.md):
+
+- **Stock Evaluator**: scores a stock 0–100 and says whether it's a buy
+  candidate, with the reasons, red flags and fair value estimates.
+- **Stock Screener**: filters lists of stocks on performance, technical and
+  fundamental measures.
+
+Open `StockApps/Package.swift` in Xcode, choose a scheme and press Run, or run
+`swift run StockEvaluator` from that folder.

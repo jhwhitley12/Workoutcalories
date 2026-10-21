@@ -1,0 +1,44 @@
+name: Stock Apps (macOS)
+
+on:
+  push:
+    paths:
+      - "StockApps/**"
+      - ".github/workflows/stock-apps.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: StockApps
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Test
+        run: swift test
+
+      - name: Package apps (Apple Silicon + Intel)
+        run: UNIVERSAL=1 ./build-app.sh
+
+      - name: Zip apps
+        run: |
+          cd build
+          lipo -info "Stock Evaluator.app/Contents/MacOS/StockEvaluator"
+          ditto -c -k --keepParent "Stock Evaluator.app" "StockEvaluator-mac.zip"
+          ditto -c -k --keepParent "Stock Screener.app" "StockScreener-mac.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StockApps-mac
+          path: StockApps/build/*.zip
+          if-no-files-found: error
