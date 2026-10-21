@@ -8,6 +8,7 @@ struct ContentView: View {
 
     @State private var startDate = Calendar.current.date(byAdding: .day, value: -6, to: .now) ?? .now
     @State private var endDate = Date.now
+    @AppStorage("calorieMode") private var mode: CalorieMode = .active
 
     private let calendar = Calendar.current
 
@@ -79,19 +80,27 @@ struct ContentView: View {
             } label: {
                 Label("Quick Select", systemImage: "calendar")
             }
+            Picker("Calories", selection: $mode) {
+                ForEach(CalorieMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
         } header: {
             Text("Time Period")
+        } footer: {
+            Text("Active counts only the extra calories burned by exercising. Total adds the resting calories your body burns anyway during the workout.")
         }
     }
 
     private var summarySection: some View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Calories Burned")
+                Text(mode.title)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(health.totalCalories, format: .number.precision(.fractionLength(0)))
+                    Text(health.calories(for: mode), format: .number.precision(.fractionLength(0)))
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .foregroundStyle(.orange)
                         .contentTransition(.numericText())
@@ -109,11 +118,11 @@ struct ContentView: View {
             LabeledContent("Total Time", value: formatDuration(health.totalDuration))
             if !health.workouts.isEmpty {
                 LabeledContent("Average per Workout") {
-                    Text("\(health.totalCalories / Double(health.workouts.count), format: .number.precision(.fractionLength(0))) kcal")
+                    Text("\(health.calories(for: mode) / Double(health.workouts.count), format: .number.precision(.fractionLength(0))) kcal")
                 }
             }
         } footer: {
-            Text("Active calories recorded with each workout in Apple Health.")
+            Text(mode.explanation)
         }
     }
 
@@ -123,7 +132,7 @@ struct ContentView: View {
             Chart(health.workouts) { workout in
                 BarMark(
                     x: .value("Date", workout.startDate, unit: unit.component),
-                    y: .value("kcal", workout.activeCalories)
+                    y: .value("kcal", workout.calories(mode))
                 )
                 .foregroundStyle(.orange.gradient)
             }
@@ -135,7 +144,7 @@ struct ContentView: View {
 
     private var activitySection: some View {
         let groups = Dictionary(grouping: health.workouts, by: \.activityType.rawValue)
-            .map { ActivityTotal(workouts: $0.value) }
+            .map { ActivityTotal(workouts: $0.value, mode: mode) }
             .sorted { $0.calories > $1.calories }
 
         return Section("By Activity") {
@@ -163,7 +172,7 @@ struct ContentView: View {
     private var workoutsSection: some View {
         Section("Workouts") {
             ForEach(health.workouts) { workout in
-                WorkoutRow(workout: workout)
+                WorkoutRow(workout: workout, mode: mode)
             }
         }
     }
@@ -176,7 +185,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 Text("No workouts in this period")
                     .font(.headline)
-                Text("If you expected workouts here, make sure this app can read Workouts and Active Energy in Settings › Health › Data Access & Devices.")
+                Text("If you expected workouts here, make sure this app can read Workouts, Active Energy and Resting Energy in Settings › Health › Data Access & Devices.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -198,6 +207,7 @@ struct ContentView: View {
 
 private struct WorkoutRow: View {
     let workout: WorkoutSummary
+    let mode: CalorieMode
 
     var body: some View {
         HStack(spacing: 12) {
@@ -217,7 +227,7 @@ private struct WorkoutRow: View {
             }
             Spacer()
             VStack(alignment: .trailing) {
-                Text(workout.activeCalories, format: .number.precision(.fractionLength(0)))
+                Text(workout.calories(mode), format: .number.precision(.fractionLength(0)))
                     .font(.title3.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.orange)
@@ -236,10 +246,10 @@ private struct ActivityTotal: Identifiable {
     let calories: Double
     var id: UInt { type.rawValue }
 
-    init(workouts: [WorkoutSummary]) {
+    init(workouts: [WorkoutSummary], mode: CalorieMode) {
         type = workouts[0].activityType
         count = workouts.count
-        calories = workouts.reduce(0) { $0 + $1.activeCalories }
+        calories = workouts.reduce(0) { $0 + $1.calories(mode) }
     }
 }
 

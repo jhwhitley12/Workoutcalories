@@ -1,13 +1,16 @@
 # Workout Calories (iPhone)
 
 A SwiftUI app that totals the calories burned in your workouts over a date
-range you choose. All numbers come straight from Apple Health. For each
-workout it uses the **Active Calories** Health stored with it, the same figure
-the Fitness app shows.
+range you choose. All numbers come straight from Apple Health. Switch between:
+
+- **Active**: the Active Calories Health stored with each workout.
+- **Total**: active plus the resting calories burned during each workout (from
+  Health's Resting Energy). This matches "Total Calories" in the Fitness app.
 
 ## Features
 - Pick **From / To** dates, or use Quick Select (Today, Last 7 Days, This Week,
   Last 30 Days, This Month, Last Month, This Year). The range covers whole days.
+- Active / Total switch (remembered between launches).
 - Shows total kcal, workout count, total time and average per workout.
 - Bar chart of calories by day, week or month, depending on range length.
 - Breakdown by activity type (Running, Strength, Cycling, …).
@@ -31,15 +34,15 @@ the Fitness app shows.
 4. First launch on the phone: if iOS says the developer is untrusted, go to
    Settings ▸ General ▸ VPN & Device Management and trust your developer
    certificate. You may also need to turn on Settings ▸ Privacy & Security ▸ Developer Mode.
-5. When the Health permission sheet appears, allow **Workouts** and **Active Energy**.
+5. When the Health permission sheet appears, allow **Workouts**, **Active Energy** and **Resting Energy**.
 
 If the app shows no workouts, check Settings ▸ Health ▸ Data Access & Devices ▸
-Workout Calories and make sure both permissions are on.
+Workout Calories and make sure all three permissions are on.
 
 ## Code layout
 | File | Purpose |
 |---|---|
-| `CalorieTracker/HealthKitManager.swift` | HealthKit authorization, the workout query and per-workout active-energy totals |
+| `CalorieTracker/HealthKitManager.swift` | HealthKit authorization, the workout query and per-workout active and resting energy totals |
 | `CalorieTracker/ContentView.swift` | Date range UI, presets, summary, chart, breakdown and list |
 | `CalorieTracker/WorkoutActivityType+Display.swift` | Names and SF Symbols for workout types |
 | `CalorieTracker.entitlements` | HealthKit entitlement |

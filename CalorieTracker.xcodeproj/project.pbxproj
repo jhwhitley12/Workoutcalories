@@ -196,7 +196,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Workout Calories";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Workout Calories reads your workouts and active energy from Apple Health to total the calories you burned during the time period you choose.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Workout Calories reads your workouts, active energy and resting energy from Apple Health to total the calories you burned during the time period you choose.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Workout Calories does not write any data to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -227,7 +227,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Workout Calories";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Workout Calories reads your workouts and active energy from Apple Health to total the calories you burned during the time period you choose.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Workout Calories reads your workouts, active energy and resting energy from Apple Health to total the calories you burned during the time period you choose.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Workout Calories does not write any data to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
