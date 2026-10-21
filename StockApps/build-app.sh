@@ -2,11 +2,16 @@
 # Builds "Stock Screener.app" and "Stock Evaluator.app" in ./build so you can
 # drag them to /Applications. Pass a product name to build just one:
 #   ./build-app.sh StockEvaluator
+# Set UNIVERSAL=1 to build for both Apple Silicon and Intel Macs.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-swift build -c release
-BIN_DIR="$(swift build -c release --show-bin-path)"
+FLAGS=(-c release)
+if [[ "${UNIVERSAL:-0}" == "1" ]]; then
+    FLAGS+=(--arch arm64 --arch x86_64)
+fi
+swift build "${FLAGS[@]}"
+BIN_DIR="$(swift build "${FLAGS[@]}" --show-bin-path)"
 
 make_app() {
     local product="$1" name="$2" bundle_id="$3"
