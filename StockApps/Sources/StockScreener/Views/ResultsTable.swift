@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import StockCore
 
 struct ResultsTable: View {
     @Environment(ScreenerModel.self) private var model

@@ -49,8 +49,15 @@ Workout Calories and make sure all three permissions are on.
 
 ---
 
-# Stock Screener (Mac)
+# Stock Apps (Mac)
 
-This repository also contains a native Mac stock screening app in
-[`StockScreener/`](StockScreener/README.md). Open `StockScreener/Package.swift`
-in Xcode and press Run, or run `swift run` from that folder.
+This repository also contains two native Mac apps in
+[`StockApps/`](StockApps/README.md):
+
+- **Stock Evaluator**: scores a stock 0–100 and says whether it's a buy
+  candidate, with the reasons, red flags and fair value estimates.
+- **Stock Screener**: filters lists of stocks on performance, technical and
+  fundamental measures.
+
+Open `StockApps/Package.swift` in Xcode, choose a scheme and press Run, or run
+`swift run StockEvaluator` from that folder.

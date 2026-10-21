@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Observation
 import UniformTypeIdentifiers
+import StockCore
 
 @MainActor
 @Observable

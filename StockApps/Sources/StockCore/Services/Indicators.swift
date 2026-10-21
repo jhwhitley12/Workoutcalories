@@ -1,15 +1,15 @@
 import Foundation
 
 /// Technical indicators computed from a series of daily closes (oldest first).
-enum Indicators {
+public enum Indicators {
     /// Simple moving average of the last `period` values.
-    static func sma(_ values: [Double], period: Int) -> Double? {
+    public static func sma(_ values: [Double], period: Int) -> Double? {
         guard period > 0, values.count >= period else { return nil }
         return values.suffix(period).reduce(0, +) / Double(period)
     }
 
     /// SMA at every index (nil until enough values exist). Used for the chart overlay.
-    static func smaSeries(_ values: [Double], period: Int) -> [Double?] {
+    public static func smaSeries(_ values: [Double], period: Int) -> [Double?] {
         guard period > 0 else { return values.map { _ in nil } }
         var result = [Double?](repeating: nil, count: values.count)
         var sum = 0.0
@@ -22,7 +22,7 @@ enum Indicators {
     }
 
     /// Wilder's Relative Strength Index.
-    static func rsi(_ closes: [Double], period: Int = 14) -> Double? {
+    public static func rsi(_ closes: [Double], period: Int = 14) -> Double? {
         guard period > 0, closes.count > period else { return nil }
         let p = Double(period)
         var avgGain = 0.0
@@ -46,7 +46,7 @@ enum Indicators {
     }
 
     /// Percent change from the close `lookback` bars before the last bar to `current`.
-    static func percentChange(_ closes: [Double], current: Double, lookback: Int) -> Double? {
+    public static func percentChange(_ closes: [Double], current: Double, lookback: Int) -> Double? {
         guard lookback > 0, closes.count > lookback else { return nil }
         let base = closes[closes.count - 1 - lookback]
         guard base > 0 else { return nil }
@@ -54,7 +54,7 @@ enum Indicators {
     }
 
     /// Annualized standard deviation of daily log returns, in percent.
-    static func annualizedVolatility(_ closes: [Double], days: Int = 252) -> Double? {
+    public static func annualizedVolatility(_ closes: [Double], days: Int = 252) -> Double? {
         let window = Array(closes.suffix(days + 1))
         guard window.count >= 21 else { return nil }
         var returns: [Double] = []
@@ -68,9 +68,21 @@ enum Indicators {
     }
 
     /// Average of the `period` values before the last one (so today's partial volume isn't included).
-    static func averageExcludingLast(_ values: [Double], period: Int) -> Double? {
+    public static func averageExcludingLast(_ values: [Double], period: Int) -> Double? {
         guard values.count > period else { return nil }
         let window = values.dropLast().suffix(period)
         return window.reduce(0, +) / Double(window.count)
+    }
+
+    /// Largest peak-to-trough fall, in percent (0 or negative).
+    public static func maxDrawdown(_ closes: [Double]) -> Double? {
+        guard closes.count >= 2 else { return nil }
+        var peak = closes[0]
+        var worst = 0.0
+        for close in closes {
+            peak = max(peak, close)
+            if peak > 0 { worst = min(worst, (close / peak - 1) * 100) }
+        }
+        return worst
     }
 }

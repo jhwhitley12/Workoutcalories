@@ -1,4 +1,5 @@
 import SwiftUI
+import StockCore
 
 struct ContentView: View {
     @Environment(ScreenerModel.self) private var model

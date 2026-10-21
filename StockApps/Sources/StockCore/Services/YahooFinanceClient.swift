@@ -1,12 +1,12 @@
 import Foundation
 
-enum YahooError: LocalizedError {
+public enum YahooError: LocalizedError {
     case badStatus(Int)
     case notFound
     case noData
     case message(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .badStatus(let code): "Yahoo Finance returned HTTP \(code)."
         case .notFound: "Symbol not found."
@@ -22,8 +22,8 @@ enum YahooError: LocalizedError {
 /// - Market cap, P/E and dividend yield come from the quote endpoint, which needs a
 ///   cookie + "crumb". That part is best effort: if it fails the screener still runs
 ///   and fundamental columns show "—".
-actor YahooFinanceClient {
-    static let shared = YahooFinanceClient()
+public actor YahooFinanceClient {
+    public static let shared = YahooFinanceClient()
 
     private let session: URLSession
     private var crumb: String?
@@ -42,7 +42,7 @@ actor YahooFinanceClient {
 
     // MARK: Price history
 
-    func snapshot(for symbol: String) async throws -> StockSnapshot {
+    public func snapshot(for symbol: String) async throws -> StockSnapshot {
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
         var components = URLComponents(string: "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)")!
         components.queryItems = [
@@ -89,7 +89,7 @@ actor YahooFinanceClient {
     // MARK: Fundamentals
 
     /// Returns fundamentals keyed by symbol. Returns an empty dictionary if Yahoo refuses.
-    func fundamentals(for symbols: [String]) async -> [String: Fundamentals] {
+    public func fundamentals(for symbols: [String]) async -> [String: Fundamentals] {
         var result: [String: Fundamentals] = [:]
         for start in stride(from: 0, to: symbols.count, by: 50) {
             let batch = Array(symbols[start..<min(start + 50, symbols.count)])
@@ -106,6 +106,44 @@ actor YahooFinanceClient {
             }
         }
         return result
+    }
+
+    /// Company profile, financial ratios and analyst data. Needs the same cookie + crumb as `fundamentals`.
+    public func summary(for symbol: String) async throws -> CompanySummary {
+        do {
+            return try await loadSummary(symbol, modules: Self.summaryModules, isRetry: false)
+        } catch YahooError.notFound {
+            // Funds have no financialData module, and Yahoo rejects the whole request when one is missing.
+            return try await loadSummary(symbol, modules: Self.fundSummaryModules, isRetry: false)
+        }
+    }
+
+    private static let summaryModules = "price,summaryProfile,summaryDetail,financialData,defaultKeyStatistics"
+    private static let fundSummaryModules = "price,summaryDetail,defaultKeyStatistics"
+
+    private func loadSummary(_ symbol: String, modules: String, isRetry: Bool) async throws -> CompanySummary {
+        guard let crumb = await currentCrumb() else {
+            throw YahooError.message("Yahoo Finance didn't allow access to company financials right now.")
+        }
+        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        var components = URLComponents(string: "https://query2.finance.yahoo.com/v10/finance/quoteSummary/\(encoded)")!
+        components.queryItems = [
+            URLQueryItem(name: "modules", value: modules),
+            URLQueryItem(name: "crumb", value: crumb),
+        ]
+        let data: Data
+        do {
+            data = try await get(components.url!, retries: 1)
+        } catch YahooError.badStatus(let code) where (code == 401 || code == 403) && !isRetry {
+            // The crumb expired; get a new one and try once more.
+            self.crumb = nil
+            return try await loadSummary(symbol, modules: modules, isRetry: true)
+        }
+        let response = try JSONDecoder().decode(QuoteSummaryResponse.self, from: data)
+        guard let result = response.quoteSummary.result?.first else {
+            throw YahooError.message(response.quoteSummary.error?.description ?? "No company data.")
+        }
+        return result.companySummary
     }
 
     private func quoteBatch(_ symbols: [String], isRetry: Bool = false) async -> [QuoteResponse.Quote]? {
@@ -230,6 +268,159 @@ private struct QuoteResponse: Decodable {
         let trailingPE: Double?
         let forwardPE: Double?
         let trailingAnnualDividendYield: Double?
+    }
+}
+
+private struct QuoteSummaryResponse: Decodable {
+    let quoteSummary: Body
+
+    struct Body: Decodable {
+        let result: [Modules]?
+        let error: ChartResponse.APIError?
+    }
+
+    struct Modules: Decodable {
+        let price: Price?
+        let summaryProfile: Profile?
+        let summaryDetail: Detail?
+        let financialData: Financial?
+        let defaultKeyStatistics: KeyStatistics?
+
+        var companySummary: CompanySummary {
+            var s = CompanySummary()
+            s.name = price?.longName ?? price?.shortName
+            s.quoteType = price?.quoteType
+            s.marketCap = price?.marketCap?.raw ?? detail?.marketCap?.raw
+
+            s.sector = summaryProfile?.sector
+            s.industry = summaryProfile?.industry
+            s.country = summaryProfile?.country
+            s.website = summaryProfile?.website
+            s.businessSummary = summaryProfile?.longBusinessSummary
+            s.employees = summaryProfile?.fullTimeEmployees
+
+            s.trailingPE = detail?.trailingPE?.raw
+            s.forwardPE = detail?.forwardPE?.raw ?? defaultKeyStatistics?.forwardPE?.raw
+            s.priceToSales = detail?.priceToSalesTrailing12Months?.raw
+            s.dividendYield = detail?.dividendYield?.raw
+            s.payoutRatio = detail?.payoutRatio?.raw
+            s.beta = detail?.beta?.raw ?? defaultKeyStatistics?.beta?.raw
+
+            s.pegRatio = defaultKeyStatistics?.pegRatio?.raw
+            s.priceToBook = defaultKeyStatistics?.priceToBook?.raw
+            s.enterpriseToEbitda = defaultKeyStatistics?.enterpriseToEbitda?.raw
+            s.trailingEps = defaultKeyStatistics?.trailingEps?.raw
+            s.forwardEps = defaultKeyStatistics?.forwardEps?.raw
+            s.bookValuePerShare = defaultKeyStatistics?.bookValue?.raw
+            s.shortPercentOfFloat = defaultKeyStatistics?.shortPercentOfFloat?.raw
+
+            let f = financialData
+            s.revenueGrowth = f?.revenueGrowth?.raw
+            s.earningsGrowth = f?.earningsGrowth?.raw
+            s.grossMargins = f?.grossMargins?.raw
+            s.operatingMargins = f?.operatingMargins?.raw
+            s.profitMargins = f?.profitMargins?.raw ?? defaultKeyStatistics?.profitMargins?.raw
+            s.returnOnEquity = f?.returnOnEquity?.raw
+            s.returnOnAssets = f?.returnOnAssets?.raw
+            s.totalCash = f?.totalCash?.raw
+            s.totalDebt = f?.totalDebt?.raw
+            // Yahoo reports debt/equity as a percentage (150 = 1.5×).
+            s.debtToEquity = f?.debtToEquity?.raw.map { $0 / 100 }
+            s.currentRatio = f?.currentRatio?.raw
+            s.freeCashflow = f?.freeCashflow?.raw
+            s.operatingCashflow = f?.operatingCashflow?.raw
+            s.totalRevenue = f?.totalRevenue?.raw
+            s.targetMeanPrice = f?.targetMeanPrice?.raw
+            s.targetHighPrice = f?.targetHighPrice?.raw
+            s.targetLowPrice = f?.targetLowPrice?.raw
+            s.recommendationMean = f?.recommendationMean?.raw
+            s.recommendationKey = f?.recommendationKey
+            s.analystCount = f?.numberOfAnalystOpinions?.raw
+            return s
+        }
+
+        private var detail: Detail? { summaryDetail }
+    }
+
+    struct Price: Decodable {
+        let longName: String?
+        let shortName: String?
+        let quoteType: String?
+        let marketCap: YNumber?
+    }
+
+    struct Profile: Decodable {
+        let sector: String?
+        let industry: String?
+        let country: String?
+        let website: String?
+        let longBusinessSummary: String?
+        let fullTimeEmployees: Double?
+    }
+
+    struct Detail: Decodable {
+        let marketCap: YNumber?
+        let trailingPE: YNumber?
+        let forwardPE: YNumber?
+        let priceToSalesTrailing12Months: YNumber?
+        let dividendYield: YNumber?
+        let payoutRatio: YNumber?
+        let beta: YNumber?
+    }
+
+    struct KeyStatistics: Decodable {
+        let forwardPE: YNumber?
+        let pegRatio: YNumber?
+        let priceToBook: YNumber?
+        let enterpriseToEbitda: YNumber?
+        let trailingEps: YNumber?
+        let forwardEps: YNumber?
+        let bookValue: YNumber?
+        let beta: YNumber?
+        let shortPercentOfFloat: YNumber?
+        let profitMargins: YNumber?
+    }
+
+    struct Financial: Decodable {
+        let revenueGrowth: YNumber?
+        let earningsGrowth: YNumber?
+        let grossMargins: YNumber?
+        let operatingMargins: YNumber?
+        let profitMargins: YNumber?
+        let returnOnEquity: YNumber?
+        let returnOnAssets: YNumber?
+        let totalCash: YNumber?
+        let totalDebt: YNumber?
+        let debtToEquity: YNumber?
+        let currentRatio: YNumber?
+        let freeCashflow: YNumber?
+        let operatingCashflow: YNumber?
+        let totalRevenue: YNumber?
+        let targetMeanPrice: YNumber?
+        let targetHighPrice: YNumber?
+        let targetLowPrice: YNumber?
+        let recommendationMean: YNumber?
+        let recommendationKey: String?
+        let numberOfAnalystOpinions: YNumber?
+    }
+}
+
+/// Yahoo wraps numbers as {"raw": 1.23, "fmt": "1.23"}, or {} when missing. Plain numbers are accepted too.
+private struct YNumber: Decodable {
+    let raw: Double?
+
+    private enum CodingKeys: String, CodingKey {
+        case raw
+    }
+
+    init(from decoder: Decoder) throws {
+        if let keyed = try? decoder.container(keyedBy: CodingKeys.self) {
+            raw = try? keyed.decode(Double.self, forKey: .raw)
+        } else if let single = try? decoder.singleValueContainer(), let value = try? single.decode(Double.self) {
+            raw = value
+        } else {
+            raw = nil
+        }
     }
 }
 

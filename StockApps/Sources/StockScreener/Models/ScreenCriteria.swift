@@ -1,4 +1,5 @@
 import Foundation
+import StockCore
 
 /// A numeric value a screen can filter on.
 enum Metric: String, CaseIterable, Identifiable, Codable {
