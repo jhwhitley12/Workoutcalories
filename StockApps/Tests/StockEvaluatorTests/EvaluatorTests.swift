@@ -4,13 +4,19 @@ import XCTest
 
 final class EvaluatorTests: XCTestCase {
     // Gentle uptrend with daily wiggles: above both averages, RSI ~64, volatility ~17%.
-    private let uptrend = (0..<260).map { 100 + 0.2 * Double($0) + 2 * sin(Double($0)) }
+    private let uptrend: [Double] = (0..<260).map { (i: Int) -> Double in
+        let x = Double(i)
+        return 100 + 0.2 * x + 2 * sin(x)
+    }
     // Steady decline: below both averages with a death cross.
-    private let downtrend = (0..<260).map { 200 - 0.4 * Double($0) + 2 * sin(Double($0)) }
+    private let downtrend: [Double] = (0..<260).map { (i: Int) -> Double in
+        let x = Double(i)
+        return 200 - 0.4 * x + 2 * sin(x)
+    }
 
     private func makeStock(_ closes: [Double]) -> StockSnapshot {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
-        let bars = closes.enumerated().map { i, close in
+        let bars: [PriceBar] = closes.enumerated().map { (i: Int, close: Double) -> PriceBar in
             PriceBar(date: start.addingTimeInterval(Double(i) * 86_400),
                      open: close, high: close, low: close, close: close, volume: 1_000_000)
         }
@@ -92,7 +98,7 @@ final class EvaluatorTests: XCTestCase {
     func testStrongCompanyIsABuyCandidate() {
         let stock = makeStock(uptrend)
         let evaluation = Evaluator.evaluate(stock: stock, summary: strongCompany(price: stock.price), style: .balanced)
-        XCTAssertGreaterThanOrEqual(evaluation.verdict, .buy)
+        XCTAssertGreaterThanOrEqual(evaluation.verdict, Verdict.buy)
         XCTAssertGreaterThan(evaluation.overall!, 65)
         XCTAssertTrue(evaluation.redFlags.isEmpty, "\(evaluation.redFlags)")
         XCTAssertFalse(evaluation.strengths.isEmpty)
@@ -102,7 +108,7 @@ final class EvaluatorTests: XCTestCase {
     func testWeakCompanyIsAvoided() {
         let stock = makeStock(downtrend)
         let evaluation = Evaluator.evaluate(stock: stock, summary: weakCompany(price: stock.price), style: .balanced)
-        XCTAssertEqual(evaluation.verdict, .avoid)
+        XCTAssertEqual(evaluation.verdict, Verdict.avoid)
         XCTAssertLessThan(evaluation.overall!, 40)
         XCTAssertGreaterThanOrEqual(evaluation.redFlags.count, 3)
     }
@@ -110,11 +116,11 @@ final class EvaluatorTests: XCTestCase {
     func testPriceOnlyDataIsInsufficientForBalancedButNotMomentum() {
         let stock = makeStock(uptrend)
         let balanced = Evaluator.evaluate(stock: stock, summary: nil, style: .balanced)
-        XCTAssertEqual(balanced.verdict, .insufficientData)
+        XCTAssertEqual(balanced.verdict, Verdict.insufficientData)
         XCTAssertEqual(balanced.coverage, 0.25, accuracy: 1e-9)
 
         let momentum = Evaluator.evaluate(stock: stock, summary: nil, style: .momentum)
-        XCTAssertNotEqual(momentum.verdict, .insufficientData)
+        XCTAssertNotEqual(momentum.verdict, Verdict.insufficientData)
     }
 
     func testRedFlagsDowngradeVerdict() {

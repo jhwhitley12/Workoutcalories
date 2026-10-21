@@ -5,7 +5,7 @@ import XCTest
 final class ScreenTests: XCTestCase {
     private func makeStock(closes: [Double]) -> StockSnapshot {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
-        let bars = closes.enumerated().map { i, close in
+        let bars: [PriceBar] = closes.enumerated().map { (i: Int, close: Double) -> PriceBar in
             PriceBar(date: start.addingTimeInterval(Double(i) * 86_400),
                      open: close, high: close, low: close, close: close, volume: 1_000)
         }
