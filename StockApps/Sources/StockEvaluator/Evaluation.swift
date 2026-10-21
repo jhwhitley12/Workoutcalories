@@ -327,6 +327,11 @@ enum Evaluator {
         return Factor(name: name, value: display(value), score: scale(value, bad: bad, good: good), weight: weight, guide: guide)
     }
 
+    /// Drops measures with no data. Taking `[Factor?]` keeps array literals quick to type-check.
+    private static func present(_ factors: [Factor?]) -> [Factor] {
+        factors.compactMap { $0 }
+    }
+
     private static func ratio(_ v: Double) -> String { Format.number(v, digits: 1) + "×" }
     private static func pct(_ v: Double) -> String { Format.fraction(v, signed: true) }
     private static func pctPlain(_ v: Double) -> String { Format.fraction(v) }
@@ -339,10 +344,10 @@ enum Evaluator {
             factors.append(Factor(name: "P/E (trailing)", value: "Losing money", score: 10, weight: 1,
                                   guide: "No earnings over the last 12 months, so the price isn't backed by profits yet."))
         } else {
-            factors += [factor("P/E (trailing)", s.trailingPE, display: ratio, bad: 45, good: 12,
-                               guide: "Price ÷ last year's earnings. Under ~15 is cheap, over ~40 is expensive.")].compactMap { $0 }
+            factors += present([factor("P/E (trailing)", s.trailingPE, display: ratio, bad: 45, good: 12,
+                               guide: "Price ÷ last year's earnings. Under ~15 is cheap, over ~40 is expensive.")])
         }
-        factors += [
+        factors += present([
             factor("P/E (forward)", s.forwardPE.flatMap { $0 > 0 ? $0 : nil }, display: ratio, bad: 40, good: 12,
                    guide: "Price ÷ next year's expected earnings. Under ~15 is cheap, over ~35 is expensive."),
             factor("PEG ratio", s.pegRatio.flatMap { $0 > 0 ? $0 : nil }, display: ratio, bad: 3, good: 1,
@@ -353,7 +358,7 @@ enum Evaluator {
                    guide: "Price vs revenue. Useful for unprofitable firms. Under ~2 is cheap, over ~10 is expensive."),
             factor("Price / Book", s.priceToBook.flatMap { $0 > 0 ? $0 : nil }, display: ratio, bad: 10, good: 1.5, weight: 0.5,
                    guide: "Price vs net assets. Matters most for banks and industrials; tech is usually high."),
-        ].compactMap { $0 }
+        ])
         return factors
     }
 
@@ -362,18 +367,18 @@ enum Evaluator {
         if let trailing = s.trailingEps, let forward = s.forwardEps, trailing > 0 {
             epsGrowth = forward / trailing - 1
         }
-        return [
+        return present([
             factor("Revenue growth (YoY)", s.revenueGrowth, display: pct, bad: -0.05, good: 0.20,
                    guide: "Latest quarter vs a year ago. Above 10% is solid, above 20% is fast, below 0 is shrinking."),
             factor("Earnings growth (YoY)", s.earningsGrowth, display: pct, bad: -0.10, good: 0.25,
                    guide: "Latest quarter's earnings vs a year ago. Above 15% is strong."),
             factor("Expected EPS growth", epsGrowth, display: pct, bad: -0.05, good: 0.20,
                    guide: "Next year's expected earnings per share vs the last 12 months."),
-        ].compactMap { $0 }
+        ])
     }
 
     static func profitabilityFactors(_ s: CompanySummary) -> [Factor] {
-        [
+        present([
             factor("Net profit margin", s.profitMargins, display: pctPlain, bad: 0, good: 0.20,
                    guide: "Profit kept from each dollar of sales. Above 15% is strong; negative means losses."),
             factor("Operating margin", s.operatingMargins, display: pctPlain, bad: 0, good: 0.25,
@@ -382,33 +387,33 @@ enum Evaluator {
                    guide: "Profit made on shareholders' money. Above 15% is good. Very high values can come from heavy debt or buybacks."),
             factor("Gross margin", s.grossMargins, display: pctPlain, bad: 0.15, good: 0.60, weight: 0.5,
                    guide: "Sales minus direct costs. High gross margins (50%+) are typical of strong brands and software."),
-        ].compactMap { $0 }
+        ])
     }
 
     static func healthFactors(_ s: CompanySummary) -> [Factor] {
         var factors: [Factor] = []
         if let de = s.debtToEquity {
-            factors += [factor("Debt / Equity", de, display: ratio, bad: 2.5, good: 0.3,
-                               guide: "Debt compared to shareholders' equity. Under 0.5 is conservative, over 2 is heavy.")].compactMap { $0 }
+            factors += present([factor("Debt / Equity", de, display: ratio, bad: 2.5, good: 0.3,
+                               guide: "Debt compared to shareholders' equity. Under 0.5 is conservative, over 2 is heavy.")])
         } else if s.totalDebt == 0 {
             factors.append(Factor(name: "Debt / Equity", value: "No debt", score: 100, weight: 1,
                                   guide: "The company has no debt."))
         }
-        factors += [factor("Current ratio", s.currentRatio, display: ratio, bad: 0.8, good: 2.0,
-                           guide: "Short-term assets ÷ short-term bills. Above 1.5 is comfortable, below 1 can be tight.")].compactMap { $0 }
+        factors += present([factor("Current ratio", s.currentRatio, display: ratio, bad: 0.8, good: 2.0,
+                           guide: "Short-term assets ÷ short-term bills. Above 1.5 is comfortable, below 1 can be tight.")])
         if let fcf = s.freeCashflow, let cap = s.marketCap, cap > 0 {
-            factors += [factor("Free cash flow yield", fcf / cap, display: pctPlain, bad: -0.02, good: 0.06,
-                               guide: "Cash left after investment, as a % of market value. Above 5% is attractive; negative means burning cash.")].compactMap { $0 }
+            factors += present([factor("Free cash flow yield", fcf / cap, display: pctPlain, bad: -0.02, good: 0.06,
+                               guide: "Cash left after investment, as a % of market value. Above 5% is attractive; negative means burning cash.")])
         }
         if let cash = s.totalCash, let debt = s.totalDebt, let cap = s.marketCap, cap > 0 {
-            factors += [factor("Net cash / market cap", (cash - debt) / cap, display: pct, bad: -0.3, good: 0.1, weight: 0.5,
-                               guide: "Cash minus debt, as a % of market value. Positive means more cash than debt.")].compactMap { $0 }
+            factors += present([factor("Net cash / market cap", (cash - debt) / cap, display: pct, bad: -0.3, good: 0.1, weight: 0.5,
+                               guide: "Cash minus debt, as a % of market value. Positive means more cash than debt.")])
         }
         return factors
     }
 
     static func momentumFactors(_ stock: StockSnapshot) -> [Factor] {
-        var factors: [Factor] = [
+        var factors: [Factor] = present([
             factor("Vs 200-day average", stock.aboveSMA200Pct, display: { Format.percent($0) }, bad: -15, good: 10,
                    guide: "Above the 200-day moving average is the classic sign of a long-term uptrend."),
             factor("1-year return", stock.change1Y, display: { Format.percent($0) }, bad: -20, good: 30,
@@ -417,7 +422,7 @@ enum Evaluator {
                    guide: "Recent strength or weakness."),
             factor("From 52-week high", stock.fromHigh52, display: { Format.percent($0) }, bad: -35, good: -3, weight: 0.5,
                    guide: "Leaders tend to trade near their highs. Far below the high often means a downtrend."),
-        ].compactMap { $0 }
+        ])
         if let s50 = stock.sma50, let s200 = stock.sma200 {
             let golden = s50 > s200
             factors.append(Factor(name: "50-day vs 200-day", value: golden ? "Golden cross" : "Death cross",
@@ -443,17 +448,17 @@ enum Evaluator {
         guard analysts > 0 else { return [] }
         let weight = analysts >= 5 ? 1.0 : 0.5
         let key = s.recommendationKey.map { $0.replacingOccurrences(of: "_", with: " ").capitalized }
-        return [
+        return present([
             factor("Consensus rating", s.recommendationMean, display: { Format.number($0, digits: 1) + (key.map { " (\($0))" } ?? "") },
                    bad: 3.5, good: 1.5, weight: weight,
                    guide: "Average of \(Int(analysts)) analysts: 1 = Strong Buy, 3 = Hold, 5 = Sell."),
             factor("Upside to price target", s.targetMeanPrice.map { $0 / price - 1 }, display: pct, bad: -0.05, good: 0.25, weight: weight,
                    guide: "Average 12-month analyst target vs today's price."),
-        ].compactMap { $0 }
+        ])
     }
 
     static func riskFactors(_ stock: StockSnapshot, _ s: CompanySummary) -> [Factor] {
-        [
+        present([
             factor("Volatility (1Y)", stock.volatility, display: { Format.percent($0, signed: false) }, bad: 60, good: 15,
                    guide: "How much the price swings in a year. Under 20% is calm, over 50% is wild."),
             factor("Max drawdown (1Y)", stock.maxDrawdown, display: { Format.percent($0) }, bad: -50, good: -10,
@@ -462,14 +467,14 @@ enum Evaluator {
                    guide: "Sensitivity to the overall market. 1 moves with the market; 2 moves twice as much."),
             factor("Short interest", s.shortPercentOfFloat, display: pctPlain, bad: 0.20, good: 0.02, weight: 0.5,
                    guide: "Share of tradable stock sold short. Above 10% means many investors are betting against it."),
-        ].compactMap { $0 }
+        ])
     }
 
     static func incomeFactors(_ s: CompanySummary) -> [Factor] {
         // Yahoo often omits the yield for profitable companies that pay no dividend.
         guard let dividendYield = s.dividendYield ?? (s.trailingPE != nil ? 0 : nil) else { return [] }
-        var factors = [factor("Dividend yield", dividendYield, display: pctPlain, bad: 0, good: 0.04,
-                              guide: "Annual dividend as a % of price. 2–5% is typical for income stocks.")].compactMap { $0 }
+        var factors = present([factor("Dividend yield", dividendYield, display: pctPlain, bad: 0, good: 0.04,
+                              guide: "Annual dividend as a % of price. 2–5% is typical for income stocks.")])
         if dividendYield > 0, let payout = s.payoutRatio, payout > 0 {
             let score: Double = switch payout {
             case ..<0.2: 70
@@ -524,13 +529,12 @@ enum Evaluator {
     }
 
     static func strengths(_ categories: [CategoryScore], style: InvestorStyle) -> [String] {
-        categories
-            .filter { style.weight($0.category) > 0 }
-            .flatMap { category in category.factors.map { (category: category.category, factor: $0) } }
-            .filter { $0.factor.score >= 85 }
-            .sorted { $0.factor.score * $0.factor.weight > $1.factor.score * $1.factor.weight }
-            .prefix(6)
-            .map { "\($0.factor.name): \($0.factor.value)" }
+        var standouts: [Factor] = []
+        for category in categories where style.weight(category.category) > 0 {
+            standouts += category.factors.filter { (factor: Factor) -> Bool in factor.score >= 85 }
+        }
+        standouts.sort { (a: Factor, b: Factor) -> Bool in a.score * a.weight > b.score * b.weight }
+        return standouts.prefix(6).map { (factor: Factor) -> String in "\(factor.name): \(factor.value)" }
     }
 
     static func fairValues(_ s: CompanySummary) -> [FairValueEstimate] {

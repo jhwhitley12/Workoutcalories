@@ -150,10 +150,13 @@ private struct VerdictCard: View {
 
     /// "Scored for a Value investor. Strongest: … Weakest: …"
     private var headline: String {
-        let scored = evaluation.categories
-            .filter { evaluation.style.weight($0.category) > 0 }
-            .compactMap { category in category.score.map { (category.category.title, $0) } }
-            .sorted { $0.1 > $1.1 }
+        var scored: [(String, Double)] = []
+        for category in evaluation.categories where evaluation.style.weight(category.category) > 0 {
+            if let score = category.score {
+                scored.append((category.category.title, score))
+            }
+        }
+        scored.sort { (a: (String, Double), b: (String, Double)) -> Bool in a.1 > b.1 }
         var text = "Scored for a \(evaluation.style.title.lowercased()) investor."
         if let best = scored.first {
             text += " Strongest: \(best.0) (\(Int(best.1.rounded())))."
